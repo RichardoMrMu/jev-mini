@@ -12,24 +12,24 @@
       "ece": 0.04560613760410192,
       "mean_conf": 0.24726923475308077,
       "gap": -0.044938557454711425,
-      "latency": 633.6970499978634,
-      "elapsed": 199.44483520000358
+      "latency": 716.3635000179056,
+      "elapsed": 222.13293950000661
     },
     "20": {
       "accuracy": 0.2922077922077922,
       "ece": 0.04555972278505177,
       "mean_conf": 0.24730132549227057,
       "gap": -0.04490646671552162,
-      "latency": 330.94815000367817,
-      "elapsed": 102.84384819999104
+      "latency": 316.8642499804264,
+      "elapsed": 99.7169233999739
     },
     "77": {
       "accuracy": 0.2922077922077922,
       "ece": 0.04560183956251517,
       "mean_conf": 0.24727338262192614,
       "gap": -0.04493440958586606,
-      "latency": 205.5928999907337,
-      "elapsed": 64.43967980000889
+      "latency": 191.868349982542,
+      "elapsed": 60.68332979999832
     }
   },
   "ece_spread": 4.6414819050148715e-05,
@@ -40,5 +40,6 @@
   "published_ece_gap": 0.0401,
   "gap_over_noise": 864,
   "verdict": "Individual confidences move by up to 0.0043 under fp16, but the perturbations are unbiased and cancel in aggregate: no prediction changes label and ECE moves by 4.6e-05. The published 0.5B-vs-1.5B gap is ~900x that, so it is not an artefact of chunk sizing.",
-  "aside": "Chunking finer than necessary costs time: 634ms per item at chunk=8 against 206ms at chunk=77, same answers."
+  "aside": "Chunking finer than necessary costs time: ~716ms per item at chunk=8 against ~192ms at chunk=77, for identical answers.",
+  "reproducibility_note": "This experiment was run twice on the same machine. Every accuracy, ECE and mean-confidence figure was identical to the last recorded digit across both runs; only the latency column differed (634/331/206 ms the first time, 716/317/192 ms the second), because timing tracks machine load. That the metrics are bit-stable while the timings are not is itself part of the answer: the quantities the conclusion rests on do not move."
 }
