@@ -313,10 +313,10 @@ class JevMini:
         arrangement right up until the label space gets large, and then it is
         simply impossible: the logits tensor is
         [n_options, seq_len, vocab_size], which for banking77's 77 intents
-        against a 151k vocabulary is about a gigabyte once promoted to fp32.
-        On a 6 GB card already holding the weights that is an instant OOM.
-        Chunking bounds peak memory at a slice of it -- measured 3548 MB down
-        to 1234 MB on banking77 -- for a few extra forward passes.
+        against a 151k vocabulary is hundreds of megabytes in fp16 and about a
+        gigabyte once anything promotes it to fp32. On a 6 GB card already
+        holding the weights that is an instant OOM. Chunking bounds peak
+        memory at a slice of it, for a few extra forward passes.
 
         A note on reproducibility, because this is easy to misdiagnose:
         changing the chunk size moves the probabilities in roughly the third
@@ -378,12 +378,21 @@ class JevMini:
             first = last_logits.expand(n, -1).unsqueeze(1)
             logits = torch.cat([first, out.logits[:, :-1, :]], dim=1)
 
-            # log_softmax over the full vocabulary would allocate a second
-            # [n, seq, vocab] tensor. Only the chosen token's log-prob is
-            # needed, so gather that one logit and subtract the log-partition:
+            # Only the chosen token's log-prob is needed:
             #   log p(token) = logit(token) - logsumexp(all logits)
+            # Both log_softmax and a bare logits.float() would allocate
+            # another whole [n, seq, vocab] tensor -- 848 MB for one chunk of
+            # banking77, which is itself enough to OOM the card the chunking
+            # was meant to protect. So gather the one logit that matters, and
+            # take the log-partition one position at a time: each step casts a
+            # [n, vocab] slice rather than the entire cube.
             picked = logits.gather(2, c_cont.unsqueeze(-1)).squeeze(-1).float()
-            lse = torch.logsumexp(logits.float(), dim=-1)
+            lse = torch.empty(
+                logits.shape[0], logits.shape[1],
+                dtype=torch.float32, device=logits.device,
+            )
+            for pos in range(logits.shape[1]):
+                lse[:, pos] = torch.logsumexp(logits[:, pos, :].float(), dim=-1)
             tok_lp = (picked - lse).masked_fill(~c_mask, 0.0)
 
             t = tok_lp.sum(dim=1)
@@ -398,9 +407,9 @@ class JevMini:
     def _chunk_size(self, n_options: int, seq_len: int) -> int:
         """How many options can be scored at once without exhausting VRAM.
 
-        Sized against free memory and the real cost driver: the
-        [chunk, seq_len, vocab] logits tensor plus the fp32 copy logsumexp
-        makes of it.
+        Sized from free memory against a per-option cost that was measured,
+        not derived. Getting this wrong is not a performance question: too
+        large and the run dies on the card the chunking exists to protect.
         """
         if self.max_chunk is not None:
             return max(1, self.max_chunk)
@@ -409,10 +418,22 @@ class JevMini:
 
         vocab = getattr(self.model.config, "vocab_size", 32000)
         free, _ = torch.cuda.mem_get_info()
-        budget = free * 0.35  # leave room for the forward pass itself
 
-        # fp16 logits + fp32 logsumexp working copy ~= 6 bytes per element.
-        per_option = seq_len * vocab * 6
+        # Budget a third of what is free. Free memory is sampled before the
+        # forward pass, which then wants activations and workspace of its own,
+        # and on a shared card the desktop can claim more at any moment.
+        # Erring low costs an extra forward pass; erring high costs an OOM.
+        budget = free * 0.33
+
+        # Bytes per option, calibrated against measurement rather than theory.
+        # The fp16 logits cube alone is seq_len * vocab * 2, but profiling
+        # decide() on banking77 showed the true peak is about 3.4x that once
+        # the concatenation, the fp32 gather, the logsumexp accumulator and
+        # the allocator's own slack are counted: 77 options at seq_len 19
+        # peaked at 991 MB, i.e. ~12.9 MB each against a 6.6 MB cube.
+        # Under-counting here is exactly what made an earlier version pick
+        # "no chunking at all" on a quiet card and then OOM on a busy one.
+        per_option = seq_len * vocab * 7
         fits = int(budget // max(per_option, 1))
         return max(1, min(n_options, fits))
 
