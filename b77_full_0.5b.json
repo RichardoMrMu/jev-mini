@@ -1,5 +1,6 @@
 {
-  "dataset": "banking77 (test)",
+  "dataset": "banking77",
+  "split": "test",
   "source": "ModelScope modelscope/banking77, CC-BY-4.0",
   "device": "NVIDIA GeForce RTX 3060 Laptop GPU",
   "model": "Qwen/Qwen2.5-0.5B-Instruct",
