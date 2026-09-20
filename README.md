@@ -299,15 +299,19 @@ schema = Schema(fields=[
 d = engine.decide("I was charged twice for order #4471.", schema)
 
 d.value("category")       # 'billing' -- guaranteed one of the three options
-d.confidence("category")  # 0.718
+d.confidence("category")  # 0.555
 d["category"]["distribution"]
-# {'billing': 0.718, 'account': 0.28, 'technical': 0.002, ...}
+# {'billing': 0.555, 'account': 0.443, 'technical': 0.002}
 
 if d.confidence("category") > 0.8:
     auto_route(d.value("category"))
 else:
     escalate_to_human()
 ```
+
+That example escalates: 0.555 is a near-tie between billing and account, and
+the whole point of a calibrated number is that it says so instead of picking
+one and sounding certain.
 
 `Score` returns an **expected value** as well as the argmax: a review genuinely
 split between 2 and 4 stars should read as 3, not as whichever bucket won by a
@@ -416,12 +420,15 @@ quickstart.py      one-command demo
 The code is commented, particularly around three traps worth knowing.
 **Why only the label tokens are scored** — including the question stem flattens
 the distribution; a real bug hit during development, with billing at 0.298
-before the fix and 0.718 after. **Why length normalisation is required.** And
+before the fix and 0.555 after, against an almost-identical 0.443 for the
+runner-up beforehand. **Why length normalisation is required.** And
 **why options are scored in chunks** — 77 options against a 151k vocabulary is
 a gigabyte of logits, which OOMs a 6 GB card; chunking cut peak VRAM from
-3548 MB to 1234 MB. Changing the chunk size moves probabilities in the third
-decimal under fp16, which is reduction order rather than a cache bug: the
-error does not grow with chunk index, and in fp32 it falls from 5e-3 to 2e-6.
+3548 MB to 1234 MB. Changing the chunk size moves probabilities by up to
+~0.004 under fp16 — enough to matter if you compare two runs made with
+different chunk sizes, so pin `max_chunk` when you do. It is reduction order,
+not a cache bug: the error does not grow with chunk index, and the same
+comparison in fp32 collapses to 3e-6.
 
 ## License
 
