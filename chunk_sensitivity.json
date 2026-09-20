@@ -1,0 +1,44 @@
+{
+  "n": 308,
+  "n_classes": 77,
+  "per_class": 4,
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "dtype": "float16",
+  "device": "NVIDIA GeForce RTX 3060 Laptop GPU",
+  "question": "Does max_chunk move the published ECE gap, or only individual confidences?",
+  "chunks": {
+    "8": {
+      "accuracy": 0.2922077922077922,
+      "ece": 0.04560613760410192,
+      "mean_conf": 0.24726923475308077,
+      "gap": -0.044938557454711425,
+      "latency": 633.6970499978634,
+      "elapsed": 199.44483520000358
+    },
+    "20": {
+      "accuracy": 0.2922077922077922,
+      "ece": 0.04555972278505177,
+      "mean_conf": 0.24730132549227057,
+      "gap": -0.04490646671552162,
+      "latency": 330.94815000367817,
+      "elapsed": 102.84384819999104
+    },
+    "77": {
+      "accuracy": 0.2922077922077922,
+      "ece": 0.04560183956251517,
+      "mean_conf": 0.24727338262192614,
+      "gap": -0.04493440958586606,
+      "latency": 205.5928999907337,
+      "elapsed": 64.43967980000889
+    }
+  },
+  "ece_spread": 4.6414819050148715e-05,
+  "accuracy_spread": 0.0,
+  "mean_conf_spread": 3.209074e-05,
+  "predictions_changed": 0,
+  "max_abs_conf_delta": 0.0043,
+  "published_ece_gap": 0.0401,
+  "gap_over_noise": 864,
+  "verdict": "Individual confidences move by up to 0.0043 under fp16, but the perturbations are unbiased and cancel in aggregate: no prediction changes label and ECE moves by 4.6e-05. The published 0.5B-vs-1.5B gap is ~900x that, so it is not an artefact of chunk sizing.",
+  "aside": "Chunking finer than necessary costs time: 634ms per item at chunk=8 against 206ms at chunk=77, same answers."
+}
