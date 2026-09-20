@@ -46,6 +46,23 @@ from jevmini.datasets import (
 )
 
 
+def _model_label(path: str) -> str:
+    """A shareable name for the model, never the caller's directory layout.
+
+    ModelScope checkouts end in a revision directory literally called
+    "master", so the last path component alone is useless. Walk up until a
+    component looks like a model name, and recover the vendor prefix from the
+    "Qwen--Qwen2.5-0.5B-Instruct" form that the cache uses.
+    """
+    parts = [p for p in Path(path).parts if p not in ("", "\\", "/")]
+    generic = {"master", "main", "snapshots", "models", "model", "hub", "cache"}
+    for part in reversed(parts):
+        if part.lower() in generic or part.startswith("."):
+            continue
+        return part.replace("--", "/")
+    return path
+
+
 def load(model_path: str, dtype: str = "float16"):
     """Load onto a small, *shared* GPU.
 
@@ -61,7 +78,7 @@ def load(model_path: str, dtype: str = "float16"):
 
     So: disable the warmup, load with low_cpu_mem_usage, then move the model.
     """
-    print(f"loading {Path(model_path).name} ...", flush=True)
+    print(f"loading {_model_label(model_path)} ...", flush=True)
     t0 = time.perf_counter()
 
     tok = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
@@ -83,7 +100,23 @@ def load(model_path: str, dtype: str = "float16"):
         trust_remote_code=True,
         low_cpu_mem_usage=True,
     )
-    model = model.to(dev)
+
+    try:
+        model = model.to(dev)
+    except torch.OutOfMemoryError:
+        # A shared laptop GPU can lose a gigabyte to the desktop between the
+        # free-memory check and the copy. Say what is actually wrong and what
+        # would fix it, rather than re-raising a CUDA trace at the user.
+        free, total = torch.cuda.mem_get_info()
+        need = sum(p.numel() * p.element_size() for p in model.parameters())
+        raise SystemExit(
+            f"\nNot enough free VRAM to load this model.\n"
+            f"  model needs ~{need/1024**3:.1f} GB, card has "
+            f"{free/1024**3:.1f} GB free of {total/1024**3:.1f} GB\n"
+            f"  Close GPU-using apps (browsers are the usual culprit), or run a\n"
+            f"  smaller model, or force CPU with CUDA_VISIBLE_DEVICES=''.\n"
+        ) from None
+
     model.eval()
 
     print(f"  loaded in {time.perf_counter()-t0:.1f}s on {dev}", flush=True)
@@ -182,7 +215,7 @@ def main() -> None:
         "device": gpu,
         # Record the model name, not the caller's directory layout, so the
         # results file can be shared without leaking a local path.
-        "model": Path(args.model).name or args.model,
+        "model": _model_label(args.model),
         "dtype": args.dtype,
         "torch": torch.__version__,
     }
@@ -310,7 +343,7 @@ def main() -> None:
                 continue
             acc = sum(1 for r in sub if r["correct"]) / len(sub)
             conf = sum(r["confidence"] for r in sub) / len(sub)
-            print(f"    {diff:7} n={len(sub):2d}  acc={acc:.3f}  conf={conf:.3f}  gap={conf-acc:+.3f}")
+            print(f"    {diff:7} n={len(sub):3d}  acc={acc:.3f}  conf={conf:.3f}  gap={conf-acc:+.3f}")
 
     # ---------------------------------------------------------------- 4
     section("4. TEMPERATURE SCALING -- how much closes with one fitted scalar?")
@@ -338,12 +371,12 @@ def main() -> None:
     )
     print(f"  5-fold fitted T = {T_cv:.3f} +/- {T_std:.3f}")
     if T_std > 0.15 * max(T_cv, 1e-6):
-        print("  NOTE: spread across folds is large relative to the estimate.")
-        print("        With n=18 the fitted temperature is not reliably distinguishable")
-        print("        from T=1. Treat the numbers below as illustrative, not conclusive.")
+        print(f"  NOTE: spread across folds is large relative to the estimate.")
+        print(f"        With n={len(cat_rows)} the fitted temperature is not reliably")
+        print(f"        distinguishable from T=1. Treat what follows as illustrative.")
 
     # Also do the plain single-split version, since that is what most write-ups
-    # report -- and here it demonstrates the failure mode directly.
+    # report, and the two disagreeing is itself informative.
     dev_items, eval_items = split_dev_eval(SUPPORT_TICKETS, dev_ratio=0.35, seed=0)
     dev_rows = run_field(engine, dev_items, t_schema, "category", "category", CATEGORIES)
     ev_rows = run_field(engine, eval_items, t_schema, "category", "category", CATEGORIES)
@@ -379,7 +412,7 @@ def main() -> None:
         print(f"  {tag:14} {T:7.3f} {ece:11.4f} {delta:+9.4f}   {verdict}")
 
     print("\n  Accuracy is unchanged by construction: temperature cannot move an argmax.")
-    print("  A negative delta is a real result, not a bug -- it shows that fitting a")
+    print("  A negative delta would be a real result rather than a bug: fitting a")
     print("  calibration parameter on too few examples can make calibration worse.")
 
     results["temperature"] = {
