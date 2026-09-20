@@ -17,6 +17,10 @@ if it answers every question with 25% confidence across four options and is
 right a quarter of the time, its ECE is ~0 and it has told you nothing. That is
 why accuracy is always reported alongside, and why the reliability diagram
 matters more than any single number.
+
+And note what a single ECE figure is not: a comparison. Two models differing by
+0.05 may be indistinguishable at the sample size that produced them, which is
+what `bootstrap_ci` and `compare_ece` exist to check.
 """
 
 from __future__ import annotations
@@ -147,6 +151,91 @@ def compute_calibration(
         brier=brier,
         nll=nll,
         bins=bins,
+    )
+
+
+def bootstrap_ci(
+    confidences: Sequence[float],
+    correct: Sequence[bool],
+    n_boot: int = 2000,
+    n_bins: int = 5,
+    alpha: float = 0.05,
+    seed: int = 0,
+) -> dict:
+    """Resampling confidence intervals for accuracy and ECE.
+
+    A point estimate of ECE invites a comparison it cannot support. Reading
+    "0.057 vs 0.097" as "the larger model is worse calibrated" is only sound if
+    the intervals stay apart, and on a few hundred items they often do not.
+    This resamples the items with replacement and reports the percentile
+    interval, so the claim can be checked rather than asserted.
+
+    Returns point estimates plus (lo, hi) for each, and `ece_boot` so two runs
+    can be compared directly: see `compare_ece`.
+    """
+    import random
+
+    n = len(confidences)
+    if n == 0:
+        raise ValueError("no samples")
+    rng = random.Random(seed)
+
+    acc_boot, ece_boot = [], []
+    for _ in range(n_boot):
+        idx = [rng.randrange(n) for _ in range(n)]
+        c = [confidences[i] for i in idx]
+        k = [correct[i] for i in idx]
+        acc_boot.append(sum(k) / n)
+        ece_boot.append(compute_calibration(c, k, n_bins=n_bins).ece)
+
+    def pct(xs, q):
+        ys = sorted(xs)
+        pos = q * (len(ys) - 1)
+        lo_i = int(pos)
+        hi_i = min(lo_i + 1, len(ys) - 1)
+        frac = pos - lo_i
+        return ys[lo_i] * (1 - frac) + ys[hi_i] * frac
+
+    base = compute_calibration(confidences, correct, n_bins=n_bins)
+    return {
+        "n": n,
+        "n_boot": n_boot,
+        "accuracy": base.accuracy,
+        "accuracy_ci": (pct(acc_boot, alpha / 2), pct(acc_boot, 1 - alpha / 2)),
+        "ece": base.ece,
+        "ece_ci": (pct(ece_boot, alpha / 2), pct(ece_boot, 1 - alpha / 2)),
+        "ece_boot": ece_boot,
+    }
+
+
+def compare_ece(boot_a: dict, boot_b: dict, label_a: str = "A", label_b: str = "B") -> str:
+    """Is B's ECE separable from A's, or is the gap within noise?
+
+    Both bootstrap distributions are resampled independently, so the fraction
+    of paired draws where B exceeds A estimates how often the observed ordering
+    would recur. It is not a formal test -- the two runs share the same items,
+    which this ignores -- but it is enough to stop a 0.06-versus-0.10 gap being
+    reported as settled when the intervals overlap heavily.
+    """
+    a, b = boot_a["ece_boot"], boot_b["ece_boot"]
+    m = min(len(a), len(b))
+    wins = sum(1 for i in range(m) if b[i] > a[i])
+    frac = wins / m
+
+    a_lo, a_hi = boot_a["ece_ci"]
+    b_lo, b_hi = boot_b["ece_ci"]
+    overlap = not (a_hi < b_lo or b_hi < a_lo)
+
+    verdict = (
+        "intervals overlap -- gap is not established"
+        if overlap
+        else "intervals are disjoint -- gap is real at this sample size"
+    )
+    return (
+        f"  {label_a}: ECE {boot_a['ece']:.4f}  95% CI [{a_lo:.4f}, {a_hi:.4f}]\n"
+        f"  {label_b}: ECE {boot_b['ece']:.4f}  95% CI [{b_lo:.4f}, {b_hi:.4f}]\n"
+        f"  P({label_b} worse than {label_a}) = {frac:.3f}\n"
+        f"  {verdict}"
     )
 
 
