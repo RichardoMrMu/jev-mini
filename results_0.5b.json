@@ -4,79 +4,79 @@
   "dtype": "float16",
   "torch": "2.9.1+cu126",
   "speed": {
-    "n": 18,
-    "constrained_median_ms": 134.9536000052467,
-    "constrained_mean_ms": 211.03296666923495,
-    "generate_median_ms": 6206.470849996549,
-    "generate_mean_ms": 6497.145366669025,
-    "speedup_median": 45.98966496451562,
+    "n": 120,
+    "constrained_median_ms": 125.88085001334548,
+    "constrained_mean_ms": 135.45465666563055,
+    "generate_median_ms": 6389.201199999661,
+    "generate_mean_ms": 6419.973700833361,
+    "speedup_median": 50.755942618136906,
     "constrained_type_errors": 0,
-    "generate_type_errors": 1,
-    "constrained_acc": 0.6111111111111112,
-    "generate_acc": 0.6111111111111112,
-    "generate_mean_new_tokens": 96.0
+    "generate_type_errors": 3,
+    "constrained_acc": 0.5166666666666667,
+    "generate_acc": 0.5666666666666667,
+    "generate_mean_new_tokens": 95.85833333333333
   },
   "scaling": [
-    { "k": 1, "median_ms": 129.03179999557324, "scored": 5 },
-    { "k": 2, "median_ms": 130.01890000305139, "scored": 7 },
-    { "k": 3, "median_ms": 123.60970000736415, "scored": 12 },
-    { "k": 5, "median_ms": 134.01579999481328, "scored": 16 },
-    { "k": 8, "median_ms": 139.44030000129715, "scored": 26 }
+    { "k": 1, "median_ms": 127.61299998965114, "scored": 5 },
+    { "k": 2, "median_ms": 145.41409999947064, "scored": 7 },
+    { "k": 3, "median_ms": 133.44480001251213, "scored": 12 },
+    { "k": 5, "median_ms": 149.56220000749454, "scored": 16 },
+    { "k": 8, "median_ms": 125.59989999863319, "scored": 26 }
   ],
   "calibration": {
     "ticket_category": {
-      "accuracy": 0.6111111111111112,
-      "mean_confidence": 0.6451707896259096,
-      "ece": 0.09985670944054921,
-      "mce": 0.3996830880641937,
-      "brier": 0.5385623454175578,
-      "nll": 1.1639736062764312,
-      "overconfidence": 0.03405967851479841
+      "accuracy": 0.5166666666666667,
+      "mean_confidence": 0.6370528469483058,
+      "ece": 0.1203861802816391,
+      "mce": 0.2110076646010081,
+      "brier": 0.62959394185545,
+      "nll": 1.4258373862016434,
+      "overconfidence": 0.12038618028163905
     },
     "ticket_urgent": {
-      "accuracy": 0.7222222222222222,
-      "mean_confidence": 0.5931098792288039,
-      "ece": 0.12911234299341834,
-      "mce": 0.1534258753061294,
-      "brier": 0.43239750395155696,
-      "nll": 0.6255667460289245,
-      "overconfidence": -0.12911234299341834
+      "accuracy": 0.6083333333333333,
+      "mean_confidence": 0.5943708434700966,
+      "ece": 0.08430704673131306,
+      "mce": 0.1133879268398652,
+      "brier": 0.44979014081930396,
+      "nll": 0.641616483675734,
+      "overconfidence": -0.013962489863236671
     },
     "review_sentiment": {
-      "accuracy": 0.3333333333333333,
-      "mean_confidence": 0.8357617855072021,
-      "ece": 0.6236984332402548,
-      "mce": 0.675676131248474,
-      "brier": 1.1302820390873813,
-      "nll": 2.4532159525615542,
-      "overconfidence": 0.5024284521738689
+      "accuracy": 0.35,
+      "mean_confidence": 0.7706515083710352,
+      "ece": 0.42065150837103527,
+      "mce": 0.5657614525407553,
+      "brier": 0.9820393348999875,
+      "nll": 2.2905567207899726,
+      "overconfidence": 0.42065150837103527
     }
   },
   "temperature": {
-    "T_cv": 1.442602,
-    "T_cv_std": 0.19447936158497636,
-    "T_single_split": 0.713665,
-    "dev_n": 6,
-    "eval_n": 12,
-    "ece_baseline": 0.1578815256555875,
-    "brier_baseline": 0.6542439027566093,
+    "T_cv": 1.860104,
+    "T_cv_std": 0.18995563736699145,
+    "T_single_split": 1.7275699999999998,
+    "dev_n": 42,
+    "eval_n": 78,
+    "ece_baseline": 0.12821747477237996,
+    "brier_baseline": 0.6813990369596743,
     "acc": 0.5,
     "variants": [
       {
         "method": "single-split",
-        "T": 0.713665,
-        "ece_after": 0.18898209319729392,
-        "delta": -0.031100567541706425,
-        "verdict": "WORSE"
+        "T": 1.7275699999999998,
+        "ece_after": 0.03042553754527157,
+        "delta": 0.0977919372271084,
+        "verdict": "improved"
       },
       {
         "method": "5-fold CV",
-        "T": 1.442602,
-        "ece_after": 0.17385259655802754,
-        "delta": -0.015971070902440043,
-        "verdict": "WORSE"
+        "T": 1.860104,
+        "ece_after": 0.08469731398150358,
+        "delta": 0.04352016079087638,
+        "verdict": "improved"
       }
     ]
   },
-  "peak_vram_mb": 1578.51611328125
+  "peak_vram_mb": 1569.00146484375
 }
