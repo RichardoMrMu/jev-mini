@@ -49,7 +49,9 @@ Three consequences follow, mapping onto exactly what TypeSafe advertises:
 |---|---|---|
 | Typed probabilistic decisions | Output is an index into a list | ✅ Holds |
 | Zero hallucinations | Structurally impossible to go out of range | ⚠️ Holds, but it is only a *type* guarantee |
-| Calibrated confidence (RLCD) | Probabilities *are* the return value, so measurable | ❌ Poor out of the box — and **a bigger model was worse** |
+| Calibrated confidence (RLCD) | Probabilities *are* the return value, so measurable | ❌ Poor out of the box, and **the bigger model is consistently worse calibrated** |
+
+That third row is cross-validated against a public benchmark in [section 6](#6-cross-validation-on-banking77), not left resting on the hand-built set.
 
 ---
 
@@ -114,7 +116,8 @@ one setting: certain.
 **The counterintuitive finding: the bigger model got more accurate and less
 calibrated.** On urgency, 0.5B is very nearly honest (ECE 0.084, marginally
 *under*confident at −0.014) while 1.5B is overconfident by +0.202. Every single
-1.5B task is overconfident; 0.5B is not.
+1.5B task is overconfident; 0.5B is not. Section 6 shows this half replicates
+on public data — the ECE gap does, the *direction* does not.
 
 Operationally, at a 0.50 auto-execute threshold:
 
@@ -150,7 +153,8 @@ training paradigm. Settling that properly needs TypeSafe to publish their data.
 > n=18 a single flipped item moves a 5-bin ECE by several points. It flipped to
 > a clear, consistent improvement at n=120. This is left documented here
 > because it is a useful caution about small-n calibration claims — including
-> the ones in this README.
+> the ones in this README. Section 6 adds the other half of that caution: on a
+> 77-class benchmark temperature stops helping altogether.
 
 ### 5. Routing: what the confidences actually buy you (0.5B, ticket category)
 
@@ -163,6 +167,63 @@ training paradigm. Settling that properly needs TypeSafe to publish their data.
 
 This table is what calibration is *for*: it is the contract between the model's
 stated confidence and your automation policy.
+
+---
+
+## 6. Cross-validation on banking77
+
+The set above has a structural weakness: whoever wrote the labels also wrote
+the conclusions. So the same two models were re-run against
+[banking77](https://arxiv.org/abs/2003.04807) (Casanueva et al., 2020), a
+standard intent benchmark this project had no hand in building — 385 items,
+5 per intent, sampled from the balanced test split.
+
+It is a harder test in a useful way: **77 classes, so random guessing is 1.3%**,
+and there is far more room for probability mass to land in the wrong place.
+
+```bash
+python scripts/cross_validate_banking77.py --model <path> --per-class 5 --out b77.json
+```
+
+Raw output: [`b77_0.5b.json`](b77_0.5b.json) · [`b77_1.5b.json`](b77_1.5b.json)
+
+| | 0.5B | 1.5B |
+|---|---|---|
+| accuracy | 0.294 (22.6x random) | **0.361** (27.8x random) |
+| mean confidence | 0.244 | 0.247 |
+| ECE | **0.053** | **0.114** |
+| MCE | 0.141 | 0.327 |
+| direction | under-confident −0.050 | under-confident −0.114 |
+| median latency | 270 ms | 751 ms |
+
+**What replicated.** The bigger model is more accurate and worse calibrated:
+ECE 0.114 vs 0.053, more than double, exactly as on the hand-built set. Two
+different datasets, one built here and one not, agree that scaling the model
+up bought accuracy and cost calibration.
+
+**What did not replicate — and this matters.** On the hand-built 5-class set
+both models were *over*confident. On banking77 both are *under*confident, 1.5B
+by −0.114. In the 0.6–0.8 confidence band it is right 100% of the time while
+claiming 0.673.
+
+So "small models are overconfident" is **not** what these measurements show.
+The direction of the error flips with the size of the label space; only its
+magnitude tracks the model. Spread across 77 options, no single option carries
+much mass, and the model ends up hedging more than it needs to. A claim about
+calibration is only meaningful **for a given label space** — which is exactly
+why a vendor's calibration numbers cannot be read as a property of the model.
+
+This also inverts the operational picture. Under-confidence is the safer
+failure: at a 0.50 auto-execute threshold, 1.5B lets through **0.8%** of all
+items as errors here, against **43.3%** on the 5-class set. It refuses far more
+work than it needs to, but what it does execute is largely right.
+
+**Temperature scaling stops helping.** Fitted T is 1.137 (0.5B) and 1.029
+(1.5B) — both nearly 1, i.e. "leave it alone" — and applying them makes
+held-out ECE slightly *worse*. Temperature can only rescale a distribution
+uniformly; it cannot fix a model whose ranking is weak but whose spread is
+already about right. The 71% recovery seen on the 5-class set was not a general
+property of the method.
 
 ---
 
@@ -244,7 +305,11 @@ taken by the desktop, 16 GB system RAM). `quickstart.py` sets
 transformers from reserving a block the size of the whole model up front — that
 reservation fails on a shared card even when the weights themselves would fit.
 
-Measured peak VRAM: **0.5B → 1569 MB, 1.5B → 3582 MB**.
+Options are also scored in chunks, auto-sized from free VRAM, so a large label
+space cannot blow up memory; pass `max_chunk=N` to `JevMini` to pin it.
+
+Measured peak VRAM: **0.5B → 1569 MB, 1.5B → 3582 MB** on the hand-built set;
+**3554 MB / 4372 MB** on banking77, where 77 options are in flight at once.
 
 If you hit `OSError 1455` (pagefile too small), that is system commit memory,
 not VRAM. Shut down WSL (`wsl --shutdown`) or close other large processes.
@@ -261,18 +326,24 @@ Stating this plainly, because leaving it out would be its own form of hype:
 - **It does not refute TypeSafe's figures.** Their 193x / 444x are the maximum
   gaps on particular workflows; 27.8–50.8x here is a different task set, a
   different model and a different card.
-- **The dataset is 120 + 60 items.** Larger than the 18 + 12 this started with —
-  which was small enough to produce a spurious result — but still modest. ECE on
-  a few dozen items per bin carries real uncertainty, which is why fold variance
-  is reported rather than a single flattering number.
+- **The datasets are small.** 120 + 60 hand-built items, plus 385 from
+  banking77. Larger than the 18 + 12 this started with — which was small enough
+  to produce a spurious result — but still modest. ECE over a few dozen items
+  per bin carries real uncertainty, which is why fold variance is reported
+  rather than a single flattering number.
+- **Calibration findings are label-space specific.** The over/under-confidence
+  direction flipped between the 5-class and 77-class settings. Whatever you
+  conclude here, do not port it to a different label space without re-measuring.
 - **RLCD is not implemented.** Its training procedure and reward function are
   unpublished and cannot be reproduced. What is here is the **apparatus for
   measuring** it.
 
 What it does establish: the type safety and parallel speedup from constrained
-scoring are real and easy to obtain; calibration — the hard part — is poor on a
-model not specifically trained for it, **does not improve by scaling the model
-up**, and responds well to a single fitted temperature.
+scoring are real and easy to obtain; and calibration — the hard part — is poor
+on a model not trained for it and **gets worse, not better, when the model is
+scaled up**, a result that holds on both a hand-built set and a public
+benchmark. Whether a fitted temperature rescues it depends entirely on the
+label space: it recovered 71% on 5 classes and nothing at all on 77.
 
 ---
 
@@ -280,18 +351,25 @@ up**, and responds well to a single fitted temperature.
 
 ```
 jevmini/
-  core.py          engine: constrained scoring, KV-cache reuse, Choice/Score/Noul
+  core.py          engine: constrained scoring, chunked to fit a small GPU
   calibration.py   ECE / MCE / Brier / NLL, temperature scaling (with CV), routing
   datasets.py      hand-labelled data, stratified by difficulty
+  banking77.py     public benchmark loader (via ModelScope, no VPN needed)
 scripts/
-  benchmark.py     the full five-section report
+  benchmark.py                 the full five-section report
+  cross_validate_banking77.py  the same questions against public data
 quickstart.py      one-command demo
 ```
 
-The code is commented, particularly around two traps worth knowing:
-**why only the label tokens are scored** (including the question stem flattens
-the distribution — a real bug hit during development: billing sat at 0.298
-before the fix, 0.718 after), and **why length normalisation is required**.
+The code is commented, particularly around three traps worth knowing.
+**Why only the label tokens are scored** — including the question stem flattens
+the distribution; a real bug hit during development, with billing at 0.298
+before the fix and 0.718 after. **Why length normalisation is required.** And
+**why options are scored in chunks** — 77 options against a 151k vocabulary is
+a gigabyte of logits, which OOMs a 6 GB card; chunking cut peak VRAM from
+3548 MB to 1234 MB. Changing the chunk size moves probabilities in the third
+decimal under fp16, which is reduction order rather than a cache bug: the
+error does not grow with chunk index, and in fp32 it falls from 5e-3 to 2e-6.
 
 ## License
 
