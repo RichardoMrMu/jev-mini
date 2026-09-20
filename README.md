@@ -444,6 +444,11 @@ scripts/
 quickstart.py      one-command demo
 ```
 
+Two of the result files are ~50 KB rather than ~2 KB: they carry the 2000
+resampled ECE values behind their interval, so two completed runs can be
+compared with `compare_ece` without re-running either. The 1.5B banking77
+evaluation alone takes 25 minutes, which is reason enough to keep them.
+
 The code is commented, particularly around three traps worth knowing.
 **Why only the label tokens are scored** — including the question stem flattens
 the distribution; a real bug hit during development, with billing at 0.298
