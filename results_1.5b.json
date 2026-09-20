@@ -1,0 +1,82 @@
+{
+  "device": "NVIDIA GeForce RTX 3060 Laptop GPU",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "dtype": "float16",
+  "torch": "2.9.1+cu126",
+  "speed": {
+    "n": 18,
+    "constrained_median_ms": 185.40265000774525,
+    "constrained_mean_ms": 274.9654388883048,
+    "generate_median_ms": 4526.944450015435,
+    "generate_mean_ms": 4610.605188891188,
+    "speedup_median": 24.416827104824666,
+    "constrained_type_errors": 0,
+    "generate_type_errors": 1,
+    "constrained_acc": 0.6111111111111112,
+    "generate_acc": 0.4444444444444444,
+    "generate_mean_new_tokens": 56.888888888888886
+  },
+  "scaling": [
+    { "k": 1, "median_ms": 158.892300009029, "scored": 5 },
+    { "k": 2, "median_ms": 156.13369998754933, "scored": 7 },
+    { "k": 3, "median_ms": 169.00269998586737, "scored": 12 },
+    { "k": 5, "median_ms": 158.6513000074774, "scored": 16 },
+    { "k": 8, "median_ms": 180.2079000044614, "scored": 26 }
+  ],
+  "calibration": {
+    "ticket_category": {
+      "accuracy": 0.6111111111111112,
+      "mean_confidence": 0.8098390334182315,
+      "ece": 0.19872792230712044,
+      "mce": 0.2863425612449646,
+      "brier": 0.6428790553378848,
+      "nll": 1.301645897539092,
+      "overconfidence": 0.19872792230712033
+    },
+    "ticket_urgent": {
+      "accuracy": 0.6666666666666666,
+      "mean_confidence": 0.8783122221680565,
+      "ece": 0.21164555550138986,
+      "mce": 0.701456144452095,
+      "brier": 0.4703871049631746,
+      "nll": 0.7720482118250361,
+      "overconfidence": 0.21164555550138986
+    },
+    "review_sentiment": {
+      "accuracy": 0.3333333333333333,
+      "mean_confidence": 0.7788324132561684,
+      "ece": 0.44549907992283505,
+      "mce": 0.5451671719551086,
+      "brier": 0.9433071398579633,
+      "nll": 2.661255455177932,
+      "overconfidence": 0.44549907992283505
+    }
+  },
+  "temperature": {
+    "T_cv": 1.8800039999999998,
+    "T_cv_std": 0.15150717026761462,
+    "T_single_split": 1.4927499999999998,
+    "dev_n": 6,
+    "eval_n": 12,
+    "ece_baseline": 0.23747661213080087,
+    "brier_baseline": 0.709413058234868,
+    "acc": 0.5833333333333334,
+    "variants": [
+      {
+        "method": "single-split",
+        "T": 1.4927499999999998,
+        "ece_after": 0.20399561170466132,
+        "delta": 0.03348100042613955,
+        "verdict": "improved"
+      },
+      {
+        "method": "5-fold CV",
+        "T": 1.8800039999999998,
+        "ece_after": 0.12212664194272073,
+        "delta": 0.11534997018808014,
+        "verdict": "improved"
+      }
+    ]
+  },
+  "peak_vram_mb": 3597.59521484375
+}
