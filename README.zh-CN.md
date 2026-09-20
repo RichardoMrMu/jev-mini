@@ -269,15 +269,19 @@ schema = Schema(fields=[
 d = engine.decide("I was charged twice for order #4471.", schema)
 
 d.value("category")       # 'billing' —— 一定是三个选项之一
-d.confidence("category")  # 0.718
+d.confidence("category")  # 0.555
 d["category"]["distribution"]
-# {'billing': 0.718, 'account': 0.28, 'technical': 0.002, ...}
+# {'billing': 0.555, 'account': 0.443, 'technical': 0.002}
 
 if d.confidence("category") > 0.8:
     auto_route(d.value("category"))
 else:
     escalate_to_human()
 ```
+
+这个例子会走 escalate 分支：0.555 是 billing 和 account 之间的接近平局，
+而一个校准过的数字的全部意义，就在于它会如实说出这一点，
+而不是挑一个出来、装作很确定。
 
 `Score` 除了 argmax 还返回**期望值**：一条在 2 星和 4 星之间摇摆的评论
 应该读作 3，而不是险胜的那个桶。
@@ -376,12 +380,16 @@ quickstart.py      一键体验
 
 代码有详细注释，尤其是三个值得知道的坑。
 **为什么只对标签 token 打分**——把问题 stem 也算进去会把分布压平，
-这是开发中真实踩到的 bug：修复前 billing 只有 0.298，修复后 0.718。
+这是开发中真实踩到的 bug：修复前 billing 只有 0.298，修复后 0.555，
+而第二名 account 是 0.443——修复做到的是把第一名从接近平局中分出来，
+不是凭空制造确定性。
 **为什么必须做长度归一化。** 以及**为什么要分块打分**——
 77 个选项 × 15 万词表是 1GB 的 logits，会让 6GB 显卡直接 OOM；
 分块把峰值显存从 3548 MB 降到 1234 MB。
-改变分块大小会让概率在 fp16 下第三位小数抖动，那是归约顺序而非 cache bug：
-误差不随块序号增长，且在 fp32 下从 5e-3 降到 2e-6。
+改变分块大小会让概率在 fp16 下最多抖动约 0.004——如果你要比较两次用了不同
+块大小的运行，这个量级是会影响判断的，所以这种场景下请固定 `max_chunk`。
+它是归约顺序而非 cache bug：误差不随块序号增长，同样的对比在 fp32 下
+降到 3e-6。
 
 ## License
 
