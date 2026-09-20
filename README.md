@@ -51,7 +51,9 @@ Three consequences follow, mapping onto exactly what TypeSafe advertises:
 | Zero hallucinations | Structurally impossible to go out of range | ⚠️ Holds, but it is only a *type* guarantee |
 | Calibrated confidence (RLCD) | Probabilities *are* the return value, so measurable | ❌ Poor out of the box, and **the bigger model is consistently worse calibrated** |
 
-That third row is cross-validated against a public benchmark in [section 6](#6-cross-validation-on-banking77), not left resting on the hand-built set.
+That third row is cross-validated on two public benchmarks with bootstrap
+intervals in [section 6](#6-cross-validation-on-public-benchmarks), not left
+resting on the hand-built set.
 
 ---
 
@@ -117,7 +119,8 @@ one setting: certain.
 calibrated.** On urgency, 0.5B is very nearly honest (ECE 0.084, marginally
 *under*confident at −0.014) while 1.5B is overconfident by +0.202. Every single
 1.5B task is overconfident; 0.5B is not. Section 6 shows this half replicates
-on public data — the ECE gap does, the *direction* does not.
+on public data — the ECE gap does, the *direction* does not, on either of
+the two public benchmarks.
 
 Operationally, at a 0.50 auto-execute threshold:
 
@@ -153,8 +156,9 @@ training paradigm. Settling that properly needs TypeSafe to publish their data.
 > n=18 a single flipped item moves a 5-bin ECE by several points. It flipped to
 > a clear, consistent improvement at n=120. This is left documented here
 > because it is a useful caution about small-n calibration claims — including
-> the ones in this README. Section 6 adds the other half of that caution: on a
-> 77-class benchmark temperature stops helping altogether.
+> the ones in this README. Section 6 adds the other half of that caution: on
+> both the 77-class and 150-class benchmarks temperature stops helping
+> altogether.
 
 ### 5. Routing: what the confidences actually buy you (0.5B, ticket category)
 
@@ -170,60 +174,96 @@ stated confidence and your automation policy.
 
 ---
 
-## 6. Cross-validation on banking77
+## 6. Cross-validation on public benchmarks
 
-The set above has a structural weakness: whoever wrote the labels also wrote
-the conclusions. So the same two models were re-run against
-[banking77](https://arxiv.org/abs/2003.04807) (Casanueva et al., 2020), a
-standard intent benchmark this project had no hand in building — 385 items,
-5 per intent, sampled from the balanced test split.
+The hand-built set has a structural weakness: whoever wrote the labels also
+wrote the conclusions. So the same models were re-run against two standard
+benchmarks this project had no hand in building, and every headline number now
+carries a bootstrap interval — a bare "0.057 vs 0.097" invites a comparison the
+sample size may not support.
 
-It is a harder test in a useful way: **77 classes, so random guessing is 1.3%**,
-and there is far more room for probability mass to land in the wrong place.
+| | classes | random baseline | items |
+|---|---|---|---|
+| [banking77](https://arxiv.org/abs/2003.04807) | 77 | 1.3% | 3080 (full test split) |
+| [CLINC150](https://www.aclweb.org/anthology/D19-1131) | 150 | 0.67% | 1500 |
 
 ```bash
-python scripts/cross_validate_banking77.py --model <path> --per-class 5 --out b77.json
+python scripts/cross_validate.py --dataset banking77 --model <path> --per-class 40
+python scripts/summarise.py          # reads the results, no GPU needed
 ```
 
-Raw output: [`b77_0.5b.json`](b77_0.5b.json) · [`b77_1.5b.json`](b77_1.5b.json)
+Raw output: [`b77_full_0.5b.json`](b77_full_0.5b.json) ·
+[`b77_full_1.5b.json`](b77_full_1.5b.json) · [`clinc_0.5b.json`](clinc_0.5b.json)
+
+### The headline claim now has error bars
+
+banking77, full 3080-item test split, 2000 bootstrap resamples:
 
 | | 0.5B | 1.5B |
 |---|---|---|
-| accuracy | 0.294 (22.6x random) | **0.361** (27.8x random) |
-| mean confidence | 0.244 | 0.247 |
-| ECE | **0.053** | **0.114** |
-| MCE | 0.141 | 0.327 |
-| direction | under-confident −0.050 | under-confident −0.114 |
-| median latency | 270 ms | 751 ms |
+| accuracy | 0.291 [0.276, 0.307] | **0.351** [0.334, 0.368] |
+| ECE | **0.0573** [0.0435, 0.0731] | **0.0974** [0.0834, 0.1127] |
+| signed gap | under-confident −0.047 | under-confident −0.097 |
+| median latency | 272 ms | 477 ms |
 
-**What replicated.** The bigger model is more accurate and worse calibrated:
-ECE 0.114 vs 0.053, more than double, exactly as on the hand-built set. Two
-different datasets, one built here and one not, agree that scaling the model
-up bought accuracy and cost calibration.
+**The intervals do not overlap** (0.0731 < 0.0834). The larger model is more
+accurate and measurably worse calibrated — previously that was a point estimate
+and nothing more. The 385-item subsample used earlier turned out to be faithful
+(0.294 / 0.0527 against 0.291 / 0.0573), but it could not have established this.
 
-**What did not replicate — and this matters.** On the hand-built 5-class set
-both models were *over*confident. On banking77 both are *under*confident, 1.5B
-by −0.114. In the 0.6–0.8 confidence band it is right 100% of the time while
-claiming 0.673.
+### The error direction tracks label-space size, then stops
 
-So "small models are overconfident" is **not** what these measurements show.
-The direction of the error flips with the size of the label space; only its
-magnitude tracks the model. Spread across 77 options, no single option carries
-much mass, and the model ends up hedging more than it needs to. A claim about
-calibration is only meaningful **for a given label space** — which is exactly
-why a vendor's calibration numbers cannot be read as a property of the model.
+Signed gap is mean confidence minus accuracy: positive means the model claims
+more certainty than it earns.
 
-This also inverts the operational picture. Under-confidence is the safer
-failure: at a 0.50 auto-execute threshold, 1.5B lets through **0.8%** of all
-items as errors here, against **43.3%** on the 5-class set. It refuses far more
-work than it needs to, but what it does execute is largely right.
+| label space | dataset | 0.5B signed gap | direction |
+|---|---|---|---|
+| 5 classes | hand-built | **+0.120** | over-confident |
+| 77 classes | banking77 | **−0.047** | under-confident |
+| 150 classes | CLINC150 | **−0.041** | under-confident |
 
-**Temperature scaling stops helping.** Fitted T is 1.137 (0.5B) and 1.029
-(1.5B) — both nearly 1, i.e. "leave it alone" — and applying them makes
-held-out ECE slightly *worse*. Temperature can only rescale a distribution
+On CLINC150 the 0.5B model scores 0.304 accuracy against a 0.67% random
+baseline -- 46x -- so the hedging is not a model that has given up.
+
+The flip between 5 and 77 classes was not a one-off — it reproduces on a third
+dataset. But it does not deepen: 150 classes hedge no more than 77. Whatever
+drives it saturates somewhere below 77.
+
+That narrows the claim usefully. It is **not** "small models are
+over-confident", and **not** "more classes means more hedging". It is that a
+calibration figure belongs to the label space it was measured on, which is
+exactly why a vendor's calibration number cannot be read as a property of the
+model.
+
+Operationally the direction matters more than the magnitude. Under-confidence
+is the safer failure: at a 0.50 auto-execute threshold on banking77, 0.5B lets
+through 3.1% of all items as errors, against 32.5% on the 5-class set. It
+refuses far more work than it needs to, but what it does execute is mostly
+right.
+
+### Temperature scaling does not generalise
+
+| dataset | classes | fitted T | ECE before → after |
+|---|---|---|---|
+| hand-built | 5 | 1.860 | 0.128 → **0.085** (−34%) |
+| banking77 | 77 | 1.121 | 0.0573 → 0.0866 (**worse**) |
+| CLINC150 | 150 | 1.362 | 0.0988 → 0.1355 (**worse**) |
+
+On 5 classes a single fitted scalar recovered most of the gap. On both public
+benchmarks it makes held-out ECE worse. Temperature rescales a distribution
 uniformly; it cannot fix a model whose ranking is weak but whose spread is
-already about right. The 71% recovery seen on the 5-class set was not a general
-property of the method.
+already about right. **The 71% recovery reported in section 4 was a property of
+that dataset, not of the method** — which is worth remembering when reading any
+claim that calibration has been solved by post-hoc adjustment.
+
+### What is missing
+
+CLINC150 on the 1.5B model. Two attempts were killed mid-run by the operating
+system: 150 options per item on a 1.5B model exceeds what a 16 GB laptop with a
+6 GB card can sustain, and the failure takes the whole machine down with it
+rather than raising a clean error. The 0.5B column is complete; the comparison
+at 150 classes needs a larger machine, and is left open rather than filled with
+a partial run.
 
 ---
 
@@ -305,14 +345,20 @@ taken by the desktop, 16 GB system RAM). `quickstart.py` sets
 transformers from reserving a block the size of the whole model up front — that
 reservation fails on a shared card even when the weights themselves would fit.
 
-Options are also scored in chunks, auto-sized from free VRAM, so a large label
+Options are scored in chunks, auto-sized from free VRAM, so a large label
 space cannot blow up memory; pass `max_chunk=N` to `JevMini` to pin it.
 
 Measured peak VRAM: **0.5B → 1569 MB, 1.5B → 3582 MB** on the hand-built set;
-**3554 MB / 4372 MB** on banking77, where 77 options are in flight at once.
+**1858 MB / 3409 MB** on banking77, where 77 options are in flight at once.
 
 If you hit `OSError 1455` (pagefile too small), that is system commit memory,
 not VRAM. Shut down WSL (`wsl --shutdown`) or close other large processes.
+
+A harder limit worth knowing before you plan a run: **CLINC150 on a 1.5B model
+was killed twice by the OS on this machine.** 150 options per item at that
+model size exceeds what 16 GB of system RAM can sustain, and it takes the whole
+desktop down rather than failing cleanly. Start with a small `--per-class` and
+scale up once you know your throughput.
 
 ---
 
@@ -326,24 +372,27 @@ Stating this plainly, because leaving it out would be its own form of hype:
 - **It does not refute TypeSafe's figures.** Their 193x / 444x are the maximum
   gaps on particular workflows; 27.8–50.8x here is a different task set, a
   different model and a different card.
-- **The datasets are small.** 120 + 60 hand-built items, plus 385 from
-  banking77. Larger than the 18 + 12 this started with — which was small enough
-  to produce a spurious result — but still modest. ECE over a few dozen items
-  per bin carries real uncertainty, which is why fold variance is reported
-  rather than a single flattering number.
+- **The hand-built set is small.** 120 + 60 items, which is enough for the
+  per-difficulty breakdowns and no more. The public benchmarks are larger —
+  banking77's full 3080-item test split and 1500 from CLINC150 — and those are
+  the numbers that carry bootstrap intervals. Where an interval is absent or
+  reconstructed, the result file says so.
 - **Calibration findings are label-space specific.** The over/under-confidence
-  direction flipped between the 5-class and 77-class settings. Whatever you
+  direction flipped between 5 classes and 77, and held at 150. Whatever you
   conclude here, do not port it to a different label space without re-measuring.
+- **One cell of the grid is missing.** CLINC150 on 1.5B did not complete on this
+  hardware. The 150-class comparison between model sizes is therefore open.
 - **RLCD is not implemented.** Its training procedure and reward function are
   unpublished and cannot be reproduced. What is here is the **apparatus for
   measuring** it.
 
 What it does establish: the type safety and parallel speedup from constrained
-scoring are real and easy to obtain; and calibration — the hard part — is poor
-on a model not trained for it and **gets worse, not better, when the model is
-scaled up**, a result that holds on both a hand-built set and a public
-benchmark. Whether a fitted temperature rescues it depends entirely on the
-label space: it recovered 71% on 5 classes and nothing at all on 77.
+scoring are real and easy to obtain. Calibration — the hard part — is poor on a
+model not trained for it, and **gets worse, not better, when the model is
+scaled up**: on banking77's full test split the 95% intervals for 0.5B and 1.5B
+do not overlap. And a fitted temperature is not the general remedy it appears
+to be from one dataset: it recovered 71% on 5 classes and made things worse on
+both public benchmarks.
 
 ---
 
@@ -352,12 +401,15 @@ label space: it recovered 71% on 5 classes and nothing at all on 77.
 ```
 jevmini/
   core.py          engine: constrained scoring, chunked to fit a small GPU
-  calibration.py   ECE / MCE / Brier / NLL, temperature scaling (with CV), routing
+  calibration.py   ECE / MCE / Brier / NLL, temperature scaling, bootstrap CIs
   datasets.py      hand-labelled data, stratified by difficulty
-  banking77.py     public benchmark loader (via ModelScope, no VPN needed)
+  banking77.py     77-intent benchmark  (ModelScope, no VPN needed)
+  clinc150.py      150-intent benchmark (mirrors tried in turn)
 scripts/
-  benchmark.py                 the full five-section report
-  cross_validate_banking77.py  the same questions against public data
+  benchmark.py        the full five-section report on the hand-built set
+  cross_validate.py   either public benchmark, with bootstrap intervals
+  summarise.py        reads the result files and compares them; no GPU
+  backfill_ci.py      adds intervals to runs made before they existed
 quickstart.py      one-command demo
 ```
 
