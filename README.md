@@ -256,6 +256,32 @@ already about right. **The 71% recovery reported in section 4 was a property of
 that dataset, not of the method** — which is worth remembering when reading any
 claim that calibration has been solved by post-hoc adjustment.
 
+### Is the gap real, or an artefact of chunking?
+
+Worth asking, because the two runs sized their chunks automatically from
+whatever VRAM was free, and fp16 chunking does move individual confidences.
+Same model, same 308 items, only `max_chunk` changed:
+
+| max_chunk | accuracy | ECE | median latency |
+|---|---|---|---|
+| 8 | 0.2922 | 0.045606 | 716 ms |
+| 20 | 0.2922 | 0.045560 | 317 ms |
+| 77 (no chunking) | 0.2922 | 0.045602 | 192 ms |
+
+Individual confidences move by up to 0.0043, but **not one of the 308
+predictions changes label**, and ECE moves by 4.6e-05. The perturbations are
+unbiased, so they cancel in aggregate instead of accumulating. The published
+0.040 gap is roughly **900x** that noise floor, so it belongs to the models
+rather than to the allocator.
+
+Rerun it with `python scripts/chunk_sensitivity.py <model>`; the script fails
+loudly if the spread ever grows past a fifth of the gap. Raw numbers:
+[`chunk_sensitivity.json`](chunk_sensitivity.json).
+
+Incidental but useful: chunking finer than necessary costs roughly 3x the
+latency for identical answers (timings vary with machine load; the accuracy and
+ECE columns do not). Leave the automatic sizing alone unless VRAM is tight.
+
 ### What is missing
 
 CLINC150 on the 1.5B model. Two attempts were killed mid-run by the operating
@@ -414,6 +440,7 @@ scripts/
   cross_validate.py   either public benchmark, with bootstrap intervals
   summarise.py        reads the result files and compares them; no GPU
   backfill_ci.py      adds intervals to runs made before they existed
+  chunk_sensitivity.py  checks that chunking cannot fake the headline gap
 quickstart.py      one-command demo
 ```
 
