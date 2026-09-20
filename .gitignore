@@ -1,0 +1,11 @@
+.venv/
+.models/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+_smoke.py
+_diag.py
+.vscode/
+.idea/
+.DS_Store
