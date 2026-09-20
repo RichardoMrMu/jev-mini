@@ -1,0 +1,32 @@
+{
+  "dataset": "banking77 (test)",
+  "source": "ModelScope modelscope/banking77, CC-BY-4.0",
+  "device": "NVIDIA GeForce RTX 3060 Laptop GPU",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "dtype": "float16",
+  "torch": "2.9.1+cu126",
+  "n": 3080,
+  "n_classes": 77,
+  "per_class": 40,
+  "note": "full test split, not a subsample",
+  "random_baseline": 0.012987012987012988,
+  "accuracy": 0.3513,
+  "accuracy_ci": [0.3344, 0.3682],
+  "mean_confidence": 0.2539,
+  "overconfidence": -0.0974,
+  "ece": 0.0974,
+  "ece_ci": [0.0834, 0.1127],
+  "mce": 0.2183,
+  "n_boot": 2000,
+  "ci_method": "bootstrap over per-item records (exact)",
+  "median_latency_ms": 477,
+  "elapsed_min": 24.7,
+  "temperature": {
+    "T_cv": 1.030,
+    "T_cv_std": 0.006,
+    "ece_before": 0.0974,
+    "ece_after": 0.1082,
+    "verdict": "worse -- temperature does not help at this label-space size"
+  },
+  "peak_vram_mb": 3409
+}
