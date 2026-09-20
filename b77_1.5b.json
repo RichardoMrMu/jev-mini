@@ -1,0 +1,36 @@
+{
+  "dataset": "banking77 (test)",
+  "source": "ModelScope modelscope/banking77, CC-BY-4.0",
+  "device": "NVIDIA GeForce RTX 3060 Laptop GPU",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "dtype": "float16",
+  "torch": "2.9.1+cu126",
+  "n": 385,
+  "n_classes": 77,
+  "per_class": 5,
+  "random_baseline": 0.012987012987012988,
+  "accuracy": 0.36103896103896105,
+  "mean_confidence": 0.24735835399720577,
+  "overconfidence": -0.11368060704175528,
+  "ece": 0.11368060704175528,
+  "mce": 0.3266274482011795,
+  "brier": 0.8306779136131509,
+  "nll": 3.003942097841352,
+  "median_latency_ms": 751.4010999875609,
+  "temperature": {
+    "T_cv": 1.028881,
+    "T_cv_std": 0.018844680084840932,
+    "ece_before": 0.11368060704175528,
+    "ece_after": 0.12389859191214848,
+    "brier_before": 0.8306779136131509,
+    "brier_after": 0.8338221797064316
+  },
+  "bins": [
+    { "lo": 0.0, "hi": 0.2, "n": 180, "confidence": 0.15187979969713422, "accuracy": 0.17222222222222222, "gap": -0.020342422525088 },
+    { "lo": 0.2, "hi": 0.4, "n": 155, "confidence": 0.2716950890518004, "accuracy": 0.44516129032258067, "gap": -0.17346620127078027 },
+    { "lo": 0.4, "hi": 0.6, "n": 41, "confidence": 0.4766269246252572, "accuracy": 0.7317073170731707, "gap": -0.25508039244791353 },
+    { "lo": 0.6, "hi": 0.8, "n": 8, "confidence": 0.6733725517988205, "accuracy": 1.0, "gap": -0.3266274482011795 },
+    { "lo": 0.8, "hi": 1.0, "n": 1, "confidence": 0.8531792163848877, "accuracy": 1.0, "gap": -0.1468207836151123 }
+  ],
+  "peak_vram_mb": 4372.01220703125
+}
