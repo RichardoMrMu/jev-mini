@@ -30,6 +30,14 @@ def load_all() -> list[dict]:
             continue
         if "ece" not in d:
             continue
+        # Older runs wrote "banking77 (test)" where the current script writes
+        # "banking77". Runs are paired by this string, so a stale file lands
+        # under a dataset of its own and gets mispaired against a run of a
+        # different size -- which once reported a confident, wrong 1.98x
+        # ratio between two models measured on 3080 and 385 items. Normalise
+        # on read instead of trusting the files to agree.
+        if "dataset" in d:
+            d["dataset"] = d["dataset"].split(" ")[0]
         d["_file"] = f.name
         out.append(d)
     return out
@@ -48,13 +56,13 @@ def main() -> None:
     print("=" * 78)
     print("ALL RUNS")
     print("=" * 78)
-    print(f"{'file':24} {'dataset':11} {'n':>5} {'cls':>4} "
+    print(f"{'file':24} {'dataset':12} {'n':>5} {'cls':>4} "
           f"{'acc':>6} {'ECE':>7} {'ECE 95% CI':>18} {'dir':>5}")
     print("-" * 78)
     for d in runs:
         ds = d.get("dataset", "hand-built")
         direction = "under" if d.get("overconfidence", 0) < 0 else "over"
-        print(f"{d['_file']:24} {ds:11} {d.get('n', 0):5} "
+        print(f"{d['_file']:24} {ds:12} {d.get('n', 0):5} "
               f"{d.get('n_classes', 5):4} {d['accuracy']:6.3f} {d['ece']:7.4f} "
               f"{fmt_ci(d, 'ece'):>18} {direction:>5}")
 
