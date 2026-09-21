@@ -5,16 +5,16 @@
   "torch": "2.9.1+cu126",
   "speed": {
     "n": 120,
-    "constrained_median_ms": 125.88085001334548,
-    "constrained_mean_ms": 135.45465666563055,
-    "generate_median_ms": 6389.201199999661,
-    "generate_mean_ms": 6419.973700833361,
-    "speedup_median": 50.755942618136906,
+    "constrained_median_ms": 137,
+    "generate_median_ms": 5331,
+    "speedup": 39.0,
     "constrained_type_errors": 0,
-    "generate_type_errors": 3,
+    "generate_type_errors": 10,
     "constrained_acc": 0.5166666666666667,
-    "generate_acc": 0.5666666666666667,
-    "generate_mean_new_tokens": 95.85833333333333
+    "generate_mean_new_tokens": 96,
+    "note": "Re-measured against the current generation path. This file previously recorded 3 type errors and a 50.8x speedup; both predate a change to that path and were never redone. Decoding is greedy (do_sample=False), so the counts are reproducible: two consecutive runs gave the same 10 failures at the same item indices.",
+    "constrained_acc_note": "From the constrained path, which the re-measurement did not change. The matching generate-side accuracy was dropped rather than left sitting beside fresh error counts it no longer corresponds to.",
+    "failing_indices": [5, 28, 33, 36, 76, 81, 86, 108, 112, 117]
   },
   "scaling": [
     { "k": 1, "median_ms": 127.61299998965114, "scored": 5 },
