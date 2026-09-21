@@ -75,18 +75,26 @@ Same weights, same questions, only the output mechanism differs.
 
 | | constrained | JSON generate |
 |---|---|---|
-| median latency (0.5B) | **126 ms** | 6389 ms |
-| median latency (1.5B) | **127 ms** | 3531 ms |
-| tokens generated | **0** | 96 / 58 |
-| type errors (0.5B) | **0 / 120** | 3 / 120 |
-| type errors (1.5B) | **0 / 120** | 4 / 120 |
+| median latency (0.5B) | **137 ms** | 5331 ms |
+| median latency (1.5B) | **154 ms** | 4476 ms |
+| tokens generated | **0** | 96 / 70 |
+| type errors (0.5B) | **0 / 120** | 10 / 120 |
+| type errors (1.5B) | **0 / 120** | **32 / 120** |
 
-**50.8x faster on 0.5B, 27.8x on 1.5B.** The speedup comes entirely from
+**39.0x faster on 0.5B, 29.1x on 1.5B.** The speedup comes entirely from
 removing the decode step, not from the model being smarter.
 
-Worth noting: on 1.5B the constrained path is also *more accurate*
-(0.550 vs 0.508). Same weights, same questions — the generative path loses
-accuracy because tokens go into reproducing a format rather than into judging.
+The type-error column is the more interesting one. The larger model fails to
+emit parseable, in-range JSON **three times as often** — 32 of 120 against 10 —
+so "better at the task" and "better at obeying the output contract" are not the
+same axis. Decoding is greedy, so these counts are reproducible: two
+consecutive runs gave the same failures at the same item indices.
+
+Worth noting: on 1.5B the constrained path reaches 0.550 accuracy on this set.
+The generate-side accuracy that used to sit beside it was measured on an older
+generation path and has been dropped rather than quoted next to the fresh error
+counts it no longer corresponds to — a comparison is only worth making when both
+halves come from the same run.
 
 ### 2. Parallel fields: does K questions really cost ~1 pass?
 
@@ -400,7 +408,7 @@ Stating this plainly, because leaving it out would be its own form of hype:
   public. This is a general-purpose small model plus constrained scoring. The
   numbers describe *this method on this machine*.
 - **It does not refute TypeSafe's figures.** Their 193x / 444x are the maximum
-  gaps on particular workflows; 27.8–50.8x here is a different task set, a
+  gaps on particular workflows; 29.1–39.0x here is a different task set, a
   different model and a different card.
 - **The hand-built set is small.** 120 + 60 items, which is enough for the
   per-difficulty breakdowns and no more. The public benchmarks are larger —
@@ -441,6 +449,7 @@ scripts/
   summarise.py        reads the result files and compares them; no GPU
   backfill_ci.py      adds intervals to runs made before they existed
   chunk_sensitivity.py  checks that chunking cannot fake the headline gap
+  audit_figures.py    every README figure re-checked against its source file
 quickstart.py      one-command demo
 ```
 
@@ -448,6 +457,12 @@ Two of the result files are ~50 KB rather than ~2 KB: they carry the 2000
 resampled ECE values behind their interval, so two completed runs can be
 compared with `compare_ece` without re-running either. The 1.5B banking77
 evaluation alone takes 25 minutes, which is reason enough to keep them.
+
+`audit_figures.py` exists because three published numbers here turned out not
+to reproduce — a confidence, a type-error count and a speedup — each found by
+accident rather than by checking. It pins every figure quoted above to the JSON
+field that must produce it and exits non-zero on any drift. For a repo about
+unverified claims, that check should not depend on someone noticing.
 
 The code is commented, particularly around three traps worth knowing.
 **Why only the label tokens are scored** — including the question stem flattens
