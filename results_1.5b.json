@@ -5,16 +5,16 @@
   "torch": "2.9.1+cu126",
   "speed": {
     "n": 120,
-    "constrained_median_ms": 127.2284500009846,
-    "constrained_mean_ms": 139.18874249987616,
-    "generate_median_ms": 3531.1510000028647,
-    "generate_mean_ms": 3637.507730833022,
-    "speedup_median": 27.75441341913336,
+    "constrained_median_ms": 154,
+    "generate_median_ms": 4476,
+    "speedup": 29.1,
     "constrained_type_errors": 0,
-    "generate_type_errors": 4,
+    "generate_type_errors": 32,
     "constrained_acc": 0.55,
-    "generate_acc": 0.5083333333333333,
-    "generate_mean_new_tokens": 57.8
+    "generate_mean_new_tokens": 70,
+    "note": "Re-measured against the current generation path. This file previously recorded 4 type errors; that predates a change to the path and was never redone. Decoding is greedy (do_sample=False), so the count is reproducible. At 32 of 120 the larger model fails the output contract three times as often as the 0.5B does at 10 of 120 -- being better at the task and being better at emitting valid JSON are not the same axis.",
+    "constrained_acc_note": "From the constrained path, which the re-measurement did not change. The matching generate-side accuracy was dropped rather than left sitting beside fresh error counts it no longer corresponds to.",
+    "failing_indices": [6, 11, 21, 24, 27, 40, 47, 49, 62, 66, 70, 73, 76, 78, 80, 81, 82, 85, 86, 89, 90, 92, 93, 99, 100, 101, 102, 106, 107, 110, 113, 117]
   },
   "scaling": [
     { "k": 1, "median_ms": 135.11400000425056, "scored": 5 },
